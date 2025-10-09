@@ -1,0 +1,32 @@
+# ---- Core API ----
+Flask==3.0.3
+flask-cors==5.0.0
+python-dotenv==1.0.1
+gunicorn==22.0.0
+
+# ---- ML Core (CRITICAL: Added PyTorch) ----
+torch==2.6.0 
+
+# ---- ML / Transformers ----
+transformers==4.44.0
+datasets==2.21.0
+huggingface-hub==0.24.0
+tokenizers==0.19.1
+sentencepiece==0.2.0
+
+# ---- Data Handling & Utilities ----
+pandas==2.2.2
+scikit-learn==1.5.2
+tqdm==4.66.5
+seqeval==1.2.2
+
+# ---- Scraping (for data pipeline - useful for development) ----
+beautifulsoup4==4.12.3
+newspaper3k==0.2.8
+snscrape==0.7.0.20230622
+
+# ---- Geocoding ----
+geopy==2.4.1
+
+# ---- NLP base ----
+spacy==3.7.5
