@@ -14,3 +14,4 @@ npm-debug.log*
 /flask-backend/.venv
 raw/
 Fin_Models/
+.env
