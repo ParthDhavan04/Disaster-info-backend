@@ -1,0 +1,16 @@
+# General
+.DS_Store
+.vscode/
+
+# Node.js
+/node_modules
+/node-backend/node_modules
+/node-backend/.env
+npm-debug.log*
+
+# Python / Flask
+/flask-backend/__pycache__/
+/flask-backend/*.pyc
+/flask-backend/.venv
+raw/
+Fin_Models/
