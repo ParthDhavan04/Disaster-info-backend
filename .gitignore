@@ -1,15 +1,17 @@
-# Ignore raw data folder
-raw/
-
-# Ignore machine learning model files and checkpoints
-Fin_Models/
-
-# Ignore Python cache
-__pycache__/
-
-# Ignore Python virtual environment
-.venv/
-.env
-
-# Ignore VSCode workspace/settings (optional)
+# General
+.DS_Store
 .vscode/
+
+# Node.js
+/node_modules
+/node-backend/node_modules
+/node-backend/.env
+npm-debug.log*
+
+# Python / Flask
+/flask-backend/__pycache__/
+/flask-backend/*.pyc
+/flask-backend/.venv
+raw/
+Fin_Models/
+.env
