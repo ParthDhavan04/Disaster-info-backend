@@ -1,10 +1,10 @@
 import express from 'express';
-import { pool } from '../db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js'; // Import the Mongoose Model
 import dotenv from 'dotenv';
-dotenv.config();
 
+dotenv.config();
 const router = express.Router();
 
 // Signup route
@@ -16,9 +16,10 @@ router.post('/signup', async (req, res) => {
     }
 
     try {
-        // Check if user already exists
-        const userExists = await pool.query("SELECT * FROM users WHERE email=$1", [email]);
-        if (userExists.rows.length > 0) {
+        // Check if user already exists (Mongoose Syntax)
+        const userExists = await User.findOne({ email });
+        
+        if (userExists) {
             return res.status(400).json({ message: "User already exists" });
         }
 
@@ -26,13 +27,18 @@ router.post('/signup', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Insert user
-        const result = await pool.query(
-            "INSERT INTO users (fullname, email, password) VALUES ($1, $2, $3) RETURNING id, fullname, email",
-            [fullname, email, hashedPassword]
-        );
+        // Create new user
+        const user = await User.create({
+            fullname,
+            email,
+            password: hashedPassword
+        });
 
-        res.status(201).json({ message: "User created", user: result.rows[0] });
+        // Respond
+        res.status(201).json({ 
+            message: "User created", 
+            user: { id: user._id, fullname: user.fullname, email: user.email } 
+        });
 
     } catch (err) {
         console.error(err);
@@ -49,13 +55,12 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-        // Find user
-        const result = await pool.query("SELECT * FROM users WHERE email=$1", [email]);
-        if (result.rows.length === 0) {
+        // Find user (Mongoose Syntax)
+        const user = await User.findOne({ email });
+        
+        if (!user) {
             return res.status(400).json({ message: "Invalid credentials" });
         }
-
-        const user = result.rows[0];
 
         // Compare password
         const isMatch = await bcrypt.compare(password, user.password);
@@ -64,9 +69,13 @@ router.post('/login', async (req, res) => {
         }
 
         // Generate JWT
-        const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "1h" });
+        const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-        res.json({ message: "Login successful", token, user: { id: user.id, fullname: user.fullname, email: user.email } });
+        res.json({ 
+            message: "Login successful", 
+            token, 
+            user: { id: user._id, fullname: user.fullname, email: user.email } 
+        });
 
     } catch (err) {
         console.error(err);
