@@ -1,12 +1,33 @@
 # flask-backend/app.py
 
 from flask import Flask, request, jsonify
-from inference_service import InferenceService
 from flask_cors import CORS
+from inference_service import InferenceService
+import os
+from dotenv import load_dotenv
+import pymongo
+from datetime import datetime
 
 # --- Initialization ---
+load_dotenv()
 app = Flask(__name__)
 CORS(app)
+
+# MongoDB Connection
+MONGO_URI = os.getenv("MONGO_URI")
+mongo_client = None
+reports_collection = None
+
+if MONGO_URI:
+    try:
+        mongo_client = pymongo.MongoClient(MONGO_URI)
+        db = mongo_client.disaster_db
+        reports_collection = db.reports
+        print("Connected to MongoDB Atlas (disaster_db.reports).")
+    except Exception as e:
+        print(f"Failed to connect to MongoDB: {e}")
+else:
+    print("WARNING: MONGO_URI not found in environment variables.")
 
 # Load the ML models once when the Flask application starts
 try:
@@ -27,70 +48,68 @@ def health_check():
 
 @app.route('/ml/predict', methods=['POST'])
 def predict_combined():
-    """Runs both disaster and severity prediction for a single text input."""
+    """Runs disaster and severity prediction, extracts location, and saves to MongoDB."""
     if not ml_service or not ml_service.disaster_model:
         return jsonify({"error": "ML Service not ready."}), 503
 
     data = request.get_json()
     text = data.get('text')
-    input_id = data.get('id', 'N/A')
 
     if not text:
         return jsonify({"error": "Missing 'text' field in request body."}), 400
 
     try:
+        # Get predictions from ML service
         results = ml_service.predict_combined(text)
 
-        # Calculate overall confidence (e.g., average of two top probabilities)
-        avg_prob = (results['disaster']['prob'] + results['severity']['prob']) / 2
+        # Extract data from results
+        disaster_type = results['disaster']['label']
+        severity = results['severity']['label']
+        location_text = results.get('location')
+        coordinates = results.get('coordinates')  # (lat, lon) tuple or None
+        
+        # Calculate overall confidence
+        avg_confidence = (results['disaster']['prob'] + results['severity']['prob']) / 2
 
-        # Placeholder fields set to N/A or None as requested
-        response = {
-            "id": input_id,
-            "disaster": results['disaster'],
-            "severity": results['severity'],
-            "location_text": "N/A", 
-            "lat": None, 
-            "lon": None, 
-            "confidence": round(avg_prob, 4)
+        # Prepare location in GeoJSON format (ONLY if coordinates exist)
+        location_geojson = None
+        if coordinates is not None:
+            lat, lon = coordinates
+            # CRITICAL: MongoDB GeoJSON requires [longitude, latitude]
+            location_geojson = {
+                "type": "Point",
+                "coordinates": [lon, lat]
+            }
+
+        # Construct document for MongoDB
+        document = {
+            "text": text,
+            "disaster_type": disaster_type,
+            "severity": severity,
+            "location": location_geojson,  # Will be None if no coordinates found
+            "location_text": location_text,
+            "confidence": round(avg_confidence, 4),
+            "timestamp": datetime.utcnow().isoformat() + "Z"
         }
-        return jsonify(response)
-    
+
+        # Insert into MongoDB
+        if reports_collection is not None:
+            try:
+                insert_result = reports_collection.insert_one(document)
+                # Convert ObjectId to string for JSON serialization
+                document['_id'] = str(insert_result.inserted_id)
+                print(f"Saved report to MongoDB with ID: {document['_id']}")
+            except Exception as e:
+                print(f"Error inserting into MongoDB: {e}")
+                return jsonify({"error": "Failed to save to database", "details": str(e)}), 500
+        else:
+            return jsonify({"error": "Database connection not available"}), 503
+
+        return jsonify(document), 200
+
     except Exception as e:
         app.logger.error(f"Prediction error: {e}")
-        return jsonify({"error": f"Internal prediction error: {e}"}), 500
-
-
-@app.route('/ml/predict/disaster', methods=['POST'])
-def predict_disaster():
-    """Predicts only the disaster type."""
-    if not ml_service or not ml_service.disaster_model:
-        return jsonify({"error": "ML Service not ready."}), 503
-
-    data = request.get_json()
-    text = data.get('text')
-    
-    if not text:
-        return jsonify({"error": "Missing 'text' field."}), 400
-
-    result = ml_service.predict_disaster(text)
-    return jsonify(result)
-
-
-@app.route('/ml/predict/severity', methods=['POST'])
-def predict_severity():
-    """Predicts only the severity level."""
-    if not ml_service or not ml_service.severity_model:
-        return jsonify({"error": "ML Service not ready."}), 503
-
-    data = request.get_json()
-    text = data.get('text')
-
-    if not text:
-        return jsonify({"error": "Missing 'text' field."}), 400
-
-    result = ml_service.predict_severity(text)
-    return jsonify(result)
+        return jsonify({"error": f"Internal prediction error: {str(e)}"}), 500
 
 
 if __name__ == '__main__':

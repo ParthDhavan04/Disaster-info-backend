@@ -30,3 +30,8 @@ geopy==2.4.1
 
 # ---- NLP base ----
 spacy==3.7.5
+pymongo==4.6.1
+
+# ---- RSS Feed & HTTP ----
+feedparser==6.0.11
+requests==2.31.0

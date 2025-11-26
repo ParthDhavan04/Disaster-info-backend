@@ -2,49 +2,59 @@
 
 def apply_severity_correction(text, ml_severity_label):
     """
-    Applies rule-based correction to the ML model's severity prediction 
-    based on the presence of high-impact keywords. This is used to override
-    incorrect predictions (like "Low" for a massive earthquake) for demonstration quality.
+    Applies rule-based correction to the ML model's severity prediction.
+    Prioritizes keyword detection to ensure High, Medium, and Low are 
+    correctly classified even if the ML model is biased.
     
-    Args:
-        text (str): The input text (e.g., news headline).
-        ml_severity_label (str): The severity predicted by the ML model ('Low', 'Medium', 'High').
-        
-    Returns:
-        str: The corrected severity label.
+    Hierarchy of checks:
+    1. High Keywords -> Returns "High"
+    2. Medium Keywords -> Returns "Medium"
+    3. Low Keywords -> Returns "Low"
+    4. Fallback -> Returns original ML prediction
     """
     
     # Standardize text for case-insensitive keyword checking
     clean_text = text.lower()
     
     # --- Rule 1: High Severity Keywords ---
-    # These words almost guarantee a High severity event
+    # Critical events, loss of life, major destruction
     high_keywords = [
-        "massive", "strong", "severe", "widespread", "fatalities", 
+        "massive", "strong", "severe", "widespread", "fatalities", "death", "dead",
         "collapsed", "emergency", "evacuation", "major damage", "submerged",
-        "catastrophic", "destroyed", "rescue needed", "people trapped", "major loss"
+        "catastrophic", "destroyed", "rescue needed", "people trapped", "major loss",
+        "major", "critical", "intense", "urgent", "extreme"
     ]
     
     # --- Rule 2: Medium Severity Keywords ---
-    # These words imply significant impact, but not catastrophic
+    # Significant impact, injuries, infrastructure damage, but not total devastation
     medium_keywords = [
-        "minor damage", "disruption", "traffic jam", "many injured", 
-        "large area", "significant", "alert issued", "several buildings", "minor injuries"
+        "moderate", "partial", "significant", "injured", "hospitalized",
+        "stranded", "affected", "disruption", "traffic jam", "blocked",
+        "power outage", "damaged", "relief", "alert", "warning", "rising water",
+        "heavy rain", "waterlogging"
     ]
 
-    # --- Apply Correction Logic ---
+    # --- Rule 3: Low Severity Keywords ---
+    # Minor events, drills, false alarms, minimal impact
+    low_keywords = [
+        "minor", "small", "light", "no damage", "no casualties", "no injury",
+        "safe", "controlled", "drill", "test", "false alarm", "rumor",
+        "subsiding", "normal", "minimal", "negligible", "tremor"
+    ]
+
+    # --- Apply Correction Logic (Strict Hierarchy) ---
     
-    # If the ML model predicted Low/Medium, check if a High keyword is present.
-    if ml_severity_label in ['Low', 'Medium']:
-        if any(keyword in clean_text for keyword in high_keywords):
-            # Override to High if the text contains high-impact terms
-            return "High"
+    # 1. Check High
+    if any(keyword in clean_text for keyword in high_keywords):
+        return "High"
+        
+    # 2. Check Medium
+    if any(keyword in clean_text for keyword in medium_keywords):
+        return "Medium"
+        
+    # 3. Check Low
+    if any(keyword in clean_text for keyword in low_keywords):
+        return "Low"
     
-    # If the ML model predicted Low, check if a Medium keyword is present.
-    if ml_severity_label == 'Low':
-        if any(keyword in clean_text for keyword in medium_keywords):
-            # Override to Medium if the text contains moderate-impact terms
-            return "Medium"
-    
-    # If no rule triggered an override, return the original ML prediction
+    # 4. If no keywords match, trust the ML model
     return ml_severity_label
