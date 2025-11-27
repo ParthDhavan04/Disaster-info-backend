@@ -15,9 +15,15 @@ export const protect = async (req, res, next) => {
             // Get user from the token (exclude password)
             req.user = await User.findById(decoded.id).select('-password');
 
+            if (!req.user) {
+                console.log("Protect Middleware: User not found in DB for ID:", decoded.id);
+                return res.status(401).json({ message: 'Not authorized, user not found' });
+            }
+
+            console.log(`Protect Middleware: Authenticated user ${req.user.email} with role ${req.user.role}`);
             next();
         } catch (error) {
-            console.error(error);
+            console.error("Protect Middleware Error:", error.message);
             res.status(401).json({ message: 'Not authorized, token failed' });
         }
     }
@@ -29,8 +35,10 @@ export const protect = async (req, res, next) => {
 
 export const admin = (req, res, next) => {
     if (req.user && req.user.role === 'admin') {
+        console.log("Admin Middleware: Access Granted");
         next();
     } else {
+        console.log(`Admin Middleware: Access Denied. User role is '${req.user ? req.user.role : 'undefined'}'`);
         res.status(403).json({ message: 'Not authorized as an admin' });
     }
 };
