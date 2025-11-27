@@ -10,6 +10,7 @@ npm-debug.log*
 
 # Python / Flask
 /flask-backend/__pycache__/
+/flask-backend/utils/__pycache__/
 /flask-backend/*.pyc
 /flask-backend/.venv
 raw/
