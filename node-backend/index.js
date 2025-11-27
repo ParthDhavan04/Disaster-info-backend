@@ -6,6 +6,7 @@ import { Server } from 'socket.io';
 import mongoose from 'mongoose';
 import authRoutes from './routes/authRoutes.js';
 import alertRoutes from './routes/alertRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import connectDB from './db.js'; // Import connection function
 
 dotenv.config();
@@ -34,6 +35,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/users', userRoutes);
 
 // Real-Time Logic: MongoDB Change Stream
 mongoose.connection.once('open', () => {
